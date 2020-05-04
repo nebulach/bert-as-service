@@ -24,6 +24,8 @@ class PoolingStrategy(Enum):
     CLS_POOLED = 6 # pooled [CLS] token for fine-tuned classification
     CLASSIFICATION = 7 # get probabilities for classification problems.
     REGRESSION = 8 # get probabilities for classification problems.
+    RAW_CLASSIFICATION = 9
+
 
     def __str__(self):
         return self.name
@@ -79,7 +81,8 @@ def optimize_graph(args, logger=None):
                 use_one_hot_embeddings=False,
                 use_position_embeddings=not args.no_position_embeddings)
             
-            if args.pooling_strategy == PoolingStrategy.CLASSIFICATION:
+            if args.pooling_strategy == PoolingStrategy.CLASSIFICATION or \
+                    args.pooling_strategy == PoolingStrategy.RAW_CLASSIFICATION:
                 hidden_size = model.pooled_output.shape[-1].value
                 output_weights = tf.get_variable(
                     'output_weights', [args.num_labels, hidden_size],
@@ -148,6 +151,10 @@ def optimize_graph(args, logger=None):
                     logits = tf.matmul(pooled, output_weights, transpose_b=True)
                     logits = tf.nn.bias_add(logits, output_bias)
                     pooled = tf.nn.sigmoid(logits)
+                elif args.pooling_strategy == PoolingStrategy.RAW_CLASSIFICATION:
+                    pooled = model.pooled_output
+                    logits = tf.matmul(pooled, output_weights, transpose_b=True)
+                    pooled = tf.nn.bias_add(logits, output_bias)
                 else:
                     raise NotImplementedError()
 
